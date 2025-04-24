@@ -35,12 +35,39 @@ With manual parameters:
 python telegram_cli.py connect --api-id YOUR_API_ID --api-hash YOUR_API_HASH --phone YOUR_PHONE --channel @channelname
 ```
 
+Configure trading conditions and symbol mappings:
+```
+python telegram_cli.py setup
+```
+
 ### ✨ Features
 
 - 🔐 Easy authentication with API ID/hash
 - 📢 Monitor messages from specified Telegram channels
 - 📩 Real-time display of new messages with sender information
 - 🎨 Beautiful, emoji-rich console output
+- 📊 Intelligent message filtering based on buy/sell conditions
+- ⚡ High-performance signal processing optimized for trading
+
+### 🔍 Message Filtering
+
+The application includes an optimized message filtering system that:
+
+- Filters incoming messages based on customizable buy/sell conditions
+- Only displays and processes messages containing trading signals
+- Uses case-insensitive matching to ensure all relevant signals are captured
+- Supports mapping of symbols from message text to trading pairs
+
+### ⚡ Performance Optimizations
+
+For high-frequency trading environments, the application includes several performance enhancements:
+
+- Pre-computation of conditions during initialization
+- Efficient set-based lookups for signal detection
+- Single-pass filtering algorithms to minimize processing time
+- Early termination when matches are found to reduce CPU usage
+- Optimized string operations for minimal latency
+- Smart data structures to maximize throughput of messages
 
 ### 💻 Technology Stack
 
