@@ -2,7 +2,7 @@
 
 ## 📱 Telegram CLI
 
-A command-line interface for connecting to Telegram API using your account.
+A command-line interface for connecting to Telegram API using your account and monitoring messages from channels.
 
 ### 🛠️ Setup
 
@@ -16,6 +16,7 @@ A command-line interface for connecting to Telegram API using your account.
    TELEGRAM_API_ID=your_api_id
    TELEGRAM_API_HASH=your_api_hash
    TELEGRAM_PHONE=your_phone_number
+   TELEGRAM_CHANNEL_TO_LISTEN=@channelname
    ```
 
    You can get your API ID and hash by creating an application at https://my.telegram.org
@@ -24,15 +25,22 @@ A command-line interface for connecting to Telegram API using your account.
 
 ### 🚀 Usage
 
-Connect to Telegram:
+Connect to Telegram and listen to a channel:
 ```
 python telegram_cli.py connect
 ```
 
 With manual parameters:
 ```
-python telegram_cli.py connect --api-id YOUR_API_ID --api-hash YOUR_API_HASH --phone YOUR_PHONE
+python telegram_cli.py connect --api-id YOUR_API_ID --api-hash YOUR_API_HASH --phone YOUR_PHONE --channel @channelname
 ```
+
+### ✨ Features
+
+- 🔐 Easy authentication with API ID/hash
+- 📢 Monitor messages from specified Telegram channels
+- 📩 Real-time display of new messages with sender information
+- 🎨 Beautiful, emoji-rich console output
 
 ### 💻 Technology Stack
 
