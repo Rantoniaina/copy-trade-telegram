@@ -8,8 +8,14 @@ class SLPosition(Enum):
     AFTER = "after"
 
 
+class TPPosition(Enum):
+    BEFORE = "before"
+    AFTER = "after"
+
+
 @dataclass
 class Mapping:
     from_message: List[str]
     mapping: str
-    sl_position: Optional[SLPosition] = None 
+    sl_position: Optional[SLPosition] = None
+    tp_position: Optional[TPPosition] = None 

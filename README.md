@@ -18,7 +18,7 @@ A command-line interface for connecting to Telegram API using your account and m
    TELEGRAM_PHONE=your_phone_number
    TELEGRAM_CHANNEL_TO_LISTEN=@channelname
    SETUP_CONFIG={"buy_conditions": ["buy", "long", "bullish"], "sell_conditions": ["sell", "short", "bearish"]}
-   CONFIGURATION={"pair_mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "sl_mappings": [], "position_type": "once", "interval_minutes": 0, "position_sl": "no_sl"}
+   CONFIGURATION={"pair_mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "sl_mappings": [], "tp_mappings": [], "position_type": "once", "interval_minutes": 0, "position_sl": "no_sl", "position_tp": "no_tp"}
    ```
 
    You can get your API ID and hash by creating an application at https://my.telegram.org
@@ -61,16 +61,17 @@ The application includes an optimized message filtering system that:
 - Only displays and processes messages containing trading signals
 - Uses case-insensitive matching to ensure all relevant signals are captured
 - Supports mapping of symbols from message text to trading pairs
-- Provides separate mappings for trading pairs and stop loss identifiers
+- Provides separate mappings for trading pairs, stop loss, and take profit identifiers
 
 ### ⏱️ Position Timing
 
-Two position triggering modes are available:
+Three position triggering modes are available:
 
 - **ONCE**: Trigger a position only once per detected signal (default)
 - **EACH**: Trigger a position at regular intervals (e.g., every 5 minutes)
+- **TP_LENGTH**: Create as many positions as there are take profit levels in the signal (TP1, TP2, etc.)
 
-This allows flexible trading strategies based on signal persistence or timing requirements.
+This allows flexible trading strategies based on signal persistence, timing requirements, or take profit levels.
 
 ### 🛑 Stop Loss Modes
 
@@ -96,7 +97,42 @@ Example configuration with user-defined stop loss:
 CONFIGURATION={"pair_mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "sl_mappings": [{"from_message": ["stop"], "mapping": "sl", "sl_position": "before"}], "position_type": "once", "position_sl": "user_sl", "stop_loss": 5.0}
 ```
 
-These options provide flexibility in risk management strategies.
+### 📈 Take Profit Modes
+
+Three take profit modes are available:
+
+- **NO_TP**: No take profit will be set (default)
+- **SIGNAL_TP**: Take profit will be set based on information in the signal
+- **USER_TP**: Take profit will be set based on user-defined parameters
+- **ALTERNATE**: When used with position_type EACH, the system will alternate between available take profit levels for each position created
+
+When using **USER_TP** mode, you can specify a take profit percentage (e.g., 10%) that will be applied to all trades. This value is set during configuration or can be specified in the `CONFIGURATION` environment variable with the `take_profit` parameter.
+
+When using **SIGNAL_TP** mode, you can specify the position of the take profit value in relation to the take profit keyword:
+- **BEFORE**: The take profit value appears before the keyword (e.g., "1.2345 tp")
+- **AFTER**: The take profit value appears after the keyword (e.g., "tp 1.2345")
+
+Example configuration with signal-based take profit:
+```
+CONFIGURATION={"pair_mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "tp_mappings": [{"from_message": ["tp", "target"], "mapping": "tp", "tp_position": "after"}], "position_type": "once", "position_tp": "signal_tp"}
+```
+
+Example configuration with both signal-based stop loss and take profit:
+```
+CONFIGURATION={"pair_mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "sl_mappings": [{"from_message": ["sl", "stop"], "mapping": "sl", "sl_position": "after"}], "tp_mappings": [{"from_message": ["tp", "target"], "mapping": "tp", "tp_position": "after"}], "position_type": "once", "position_sl": "signal_sl", "position_tp": "signal_tp"}
+```
+
+Example configuration with multiple take profit levels:
+```
+CONFIGURATION={"pair_mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "sl_mappings": [{"from_message": ["sl"], "mapping": "sl", "sl_position": "after"}], "tp_mappings": [{"from_message": ["tp"], "mapping": "tp", "tp_position": "after"}], "position_type": "tp_length", "position_sl": "signal_sl", "position_tp": "signal_tp"}
+```
+
+Example configuration with alternating take profit levels for recurring positions:
+```
+CONFIGURATION={"pair_mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "sl_mappings": [{"from_message": ["sl"], "mapping": "sl", "sl_position": "after"}], "tp_mappings": [{"from_message": ["tp"], "mapping": "tp", "tp_position": "after"}], "position_type": "each", "interval_minutes": 30, "position_sl": "signal_sl", "position_tp": "alternate"}
+```
+
+These options provide flexibility in both risk management and profit-taking strategies.
 
 ### ⚡ Performance Optimizations
 
