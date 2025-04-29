@@ -18,7 +18,7 @@ A command-line interface for connecting to Telegram API using your account and m
    TELEGRAM_PHONE=your_phone_number
    TELEGRAM_CHANNEL_TO_LISTEN=@channelname
    SETUP_CONFIG={"buy_conditions": ["buy", "long", "bullish"], "sell_conditions": ["sell", "short", "bearish"]}
-   CONFIGURATION={"mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "position_type": "once", "interval_minutes": 0, "position_sl": "no_sl"}
+   CONFIGURATION={"pair_mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "sl_mappings": [], "position_type": "once", "interval_minutes": 0, "position_sl": "no_sl"}
    ```
 
    You can get your API ID and hash by creating an application at https://my.telegram.org
@@ -61,6 +61,7 @@ The application includes an optimized message filtering system that:
 - Only displays and processes messages containing trading signals
 - Uses case-insensitive matching to ensure all relevant signals are captured
 - Supports mapping of symbols from message text to trading pairs
+- Provides separate mappings for trading pairs and stop loss identifiers
 
 ### ⏱️ Position Timing
 
@@ -81,9 +82,18 @@ Three stop loss modes are available:
 
 When using **USER_SL** mode, you can specify a stop loss percentage (e.g., 5%) that will be applied to all trades. This value is set during configuration or can be specified in the `CONFIGURATION` environment variable with the `stop_loss` parameter.
 
+When using **SIGNAL_SL** mode, you can specify the position of the stop loss value in relation to the stop loss keyword:
+- **BEFORE**: The stop loss value appears before the keyword (e.g., "1.2345 sl")
+- **AFTER**: The stop loss value appears after the keyword (e.g., "sl 1.2345")
+
+Example configuration with signal-based stop loss:
+```
+CONFIGURATION={"pair_mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "sl_mappings": [{"from_message": ["sl", "stop"], "mapping": "sl", "sl_position": "after"}], "position_type": "once", "position_sl": "signal_sl"}
+```
+
 Example configuration with user-defined stop loss:
 ```
-CONFIGURATION={"mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "position_type": "once", "position_sl": "user_sl", "stop_loss": 5.0}
+CONFIGURATION={"pair_mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "sl_mappings": [{"from_message": ["stop"], "mapping": "sl", "sl_position": "before"}], "position_type": "once", "position_sl": "user_sl", "stop_loss": 5.0}
 ```
 
 These options provide flexibility in risk management strategies.
