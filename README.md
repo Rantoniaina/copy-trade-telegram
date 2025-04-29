@@ -18,7 +18,7 @@ A command-line interface for connecting to Telegram API using your account and m
    TELEGRAM_PHONE=your_phone_number
    TELEGRAM_CHANNEL_TO_LISTEN=@channelname
    SETUP_CONFIG={"buy_conditions": ["buy", "long", "bullish"], "sell_conditions": ["sell", "short", "bearish"]}
-   CONFIGURATION={"mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "position_type": "once", "interval_minutes": 0}
+   CONFIGURATION={"mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "position_type": "once", "interval_minutes": 0, "position_sl": "no_sl"}
    ```
 
    You can get your API ID and hash by creating an application at https://my.telegram.org
@@ -51,6 +51,7 @@ python telegram_cli.py setup
 - 📊 Intelligent message filtering based on buy/sell conditions
 - ⚡ High-performance signal processing optimized for trading
 - ⏱️ Configurable position timing (once or at intervals)
+- 🛑 Customizable stop loss strategies
 
 ### 🔍 Message Filtering
 
@@ -69,6 +70,23 @@ Two position triggering modes are available:
 - **EACH**: Trigger a position at regular intervals (e.g., every 5 minutes)
 
 This allows flexible trading strategies based on signal persistence or timing requirements.
+
+### 🛑 Stop Loss Modes
+
+Three stop loss modes are available:
+
+- **NO_SL**: No stop loss will be set (default)
+- **SIGNAL_SL**: Stop loss will be set based on information in the signal
+- **USER_SL**: Stop loss will be set based on user-defined parameters
+
+When using **USER_SL** mode, you can specify a stop loss percentage (e.g., 5%) that will be applied to all trades. This value is set during configuration or can be specified in the `CONFIGURATION` environment variable with the `stop_loss` parameter.
+
+Example configuration with user-defined stop loss:
+```
+CONFIGURATION={"mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "position_type": "once", "position_sl": "user_sl", "stop_loss": 5.0}
+```
+
+These options provide flexibility in risk management strategies.
 
 ### ⚡ Performance Optimizations
 

@@ -15,6 +15,7 @@ from src.services.trade_service import TradeService
 from src.models.setup import Setup
 from src.models.mapping import Mapping
 from src.models.configuration import Configuration
+from decimal import Decimal
 
 
 @click.group()
@@ -129,7 +130,7 @@ def configure_setup() -> tuple[Setup, Configuration]:
     click.echo("2. EACH - Trigger a position each X minutes")
     position_choice = input("Enter your choice (1 or 2, default: 1): ")
     
-    from src.models.configuration import PositionType
+    from src.models.configuration import PositionType, PositionSL
     position_type = PositionType.ONCE
     interval_minutes = 0
     
@@ -142,6 +143,34 @@ def configure_setup() -> tuple[Setup, Configuration]:
             click.echo("⚠️ Invalid interval value, using default of 5 minutes")
             interval_minutes = 5
     
+    # Configure stop loss
+    click.echo("\n🛑 Stop Loss Configuration")
+    click.echo("Select stop loss mode:")
+    click.echo("1. NO_SL - No stop loss will be set")
+    click.echo("2. SIGNAL_SL - Stop loss will be set based on the signal")
+    click.echo("3. USER_SL - Stop loss will be set based on user configuration")
+    sl_choice = input("Enter your choice (1, 2, or 3, default: 1): ")
+    
+    position_sl = PositionSL.NO_SL
+    stop_loss = None
+    
+    if sl_choice == "2":
+        position_sl = PositionSL.SIGNAL_SL
+    elif sl_choice == "3":
+        position_sl = PositionSL.USER_SL
+        
+        # Get stop loss percentage from user
+        click.echo("\nEnter stop loss percentage (e.g., 5 for 5%)")
+        sl_input = input("Stop loss percentage: ")
+        try:
+            stop_loss = Decimal(sl_input)
+            if stop_loss <= 0:
+                click.echo("⚠️ Stop loss must be greater than 0, using default of 5%")
+                stop_loss = Decimal('5')
+        except:
+            click.echo("⚠️ Invalid stop loss value, using default of 5%")
+            stop_loss = Decimal('5')
+    
     # Create the setup and configuration
     setup = Setup(
         buy_conditions=buy_conditions,
@@ -151,7 +180,9 @@ def configure_setup() -> tuple[Setup, Configuration]:
     configuration = Configuration(
         mappings=mappings,
         position_type=position_type,
-        interval_minutes=interval_minutes
+        interval_minutes=interval_minutes,
+        position_sl=position_sl,
+        stop_loss=stop_loss
     )
     
     # Preview the configuration
@@ -166,6 +197,9 @@ def configure_setup() -> tuple[Setup, Configuration]:
     click.echo(f"⏱️ Position type: {position_type.value.upper()}")
     if position_type == PositionType.EACH:
         click.echo(f"⏱️ Interval: {interval_minutes} minutes")
+    click.echo(f"🛑 Stop loss mode: {position_sl.value.upper()}")
+    if position_sl == PositionSL.USER_SL and stop_loss is not None:
+        click.echo(f"🛑 Stop loss percentage: {stop_loss}%")
     
     # Confirm and save
     confirm = input("\nSave this configuration? (y/n): ")

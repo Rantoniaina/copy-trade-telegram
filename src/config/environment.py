@@ -5,6 +5,7 @@ from dotenv import load_dotenv, set_key
 from src.models.setup import Setup
 from src.models.mapping import Mapping
 from src.models.configuration import Configuration
+from decimal import Decimal
 
 def load_environment():
     """Load environment variables from .env file"""
@@ -74,7 +75,7 @@ def load_configuration():
         
         # Get position type and interval
         position_type_str = config_dict.get('position_type', 'once')
-        from src.models.configuration import PositionType
+        from src.models.configuration import PositionType, PositionSL
         
         # Convert string to enum
         position_type = PositionType.ONCE
@@ -83,11 +84,30 @@ def load_configuration():
         
         interval_minutes = config_dict.get('interval_minutes', 0)
         
+        # Handle position SL
+        position_sl_str = config_dict.get('position_sl', 'no_sl')
+        position_sl = PositionSL.NO_SL
+        
+        if position_sl_str.lower() == 'signal_sl':
+            position_sl = PositionSL.SIGNAL_SL
+        elif position_sl_str.lower() == 'user_sl':
+            position_sl = PositionSL.USER_SL
+        
+        # Handle stop loss
+        stop_loss = None
+        if position_sl == PositionSL.USER_SL and 'stop_loss' in config_dict:
+            try:
+                stop_loss = Decimal(str(config_dict.get('stop_loss')))
+            except Exception as e:
+                print(f"❌ Error parsing stop_loss value: {e}")
+        
         # Create and return Configuration object
         return Configuration(
             mappings=mappings,
             position_type=position_type,
-            interval_minutes=interval_minutes
+            interval_minutes=interval_minutes,
+            position_sl=position_sl,
+            stop_loss=stop_loss
         )
     except json.JSONDecodeError:
         print("❌ Error: Invalid JSON in CONFIGURATION environment variable")
@@ -137,8 +157,13 @@ def save_configuration(config: Configuration) -> bool:
                 } for m in config.mappings
             ],
             'position_type': config.position_type.value,
-            'interval_minutes': config.interval_minutes
+            'interval_minutes': config.interval_minutes,
+            'position_sl': config.position_sl.value
         }
+        
+        # Add stop_loss if it's set and position_sl is USER_SL
+        if config.position_sl == PositionSL.USER_SL and config.stop_loss is not None:
+            config_dict['stop_loss'] = float(config.stop_loss)
         
         # Convert to JSON string
         config_json = json.dumps(config_dict)
