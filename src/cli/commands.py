@@ -2,11 +2,19 @@ import click
 import asyncio
 import json
 import os
-from src.config.environment import load_environment, get_telegram_credentials, load_setup_config, save_setup_config
+from src.config.environment import (
+    load_environment, 
+    get_telegram_credentials, 
+    load_setup_config, 
+    save_setup_config,
+    load_configuration,
+    save_configuration
+)
 from src.services.telegram_service import TelegramService
 from src.services.trade_service import TradeService
 from src.models.setup import Setup
 from src.models.mapping import Mapping
+from src.models.configuration import Configuration
 
 
 @click.group()
@@ -38,10 +46,12 @@ def connect(api_id, api_hash, phone, channel):
     
     # Load setup configuration
     setup_config = load_setup_config()
-    if not setup_config:
-        click.echo("⚙️ No setup configuration found. Let's configure it now.")
-        setup_config = configure_setup()
-        if not setup_config:
+    configuration = load_configuration()
+    
+    if not setup_config or not configuration:
+        click.echo("⚙️ No setup configuration or mappings found. Let's configure it now.")
+        setup_config, configuration = configure_setup()
+        if not setup_config or not configuration:
             click.echo("❌ Setup configuration cancelled.")
             return
     
@@ -51,21 +61,21 @@ def connect(api_id, api_hash, phone, channel):
     click.echo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     
     # Run the async function using asyncio
-    asyncio.run(connect_and_listen(credentials, setup_config))
+    asyncio.run(connect_and_listen(credentials, setup_config, configuration))
 
 
 @cli.command()
 def setup():
     """⚙️ Configure trading setup parameters"""
-    setup_config = configure_setup()
+    setup_config, configuration = configure_setup()
     if setup_config:
         click.echo("✅ Setup configuration completed successfully!")
     else:
         click.echo("❌ Setup configuration cancelled.")
 
 
-def configure_setup() -> Setup:
-    """Interactive configuration of trading setup"""
+def configure_setup() -> tuple[Setup, Configuration]:
+    """Interactive configuration of trading setup and configuration"""
     click.echo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     click.echo("⚙️ TRADING SETUP CONFIGURATION")
     click.echo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
@@ -112,10 +122,13 @@ def configure_setup() -> Setup:
             Mapping(from_message=["ETH", "Ethereum"], mapping="ETHUSDT")
         ]
     
-    # Create and save the setup
+    # Create the setup and configuration
     setup = Setup(
         buy_conditions=buy_conditions,
         sell_conditions=sell_conditions,
+    )
+    
+    configuration = Configuration(
         mappings=mappings
     )
     
@@ -126,23 +139,24 @@ def configure_setup() -> Setup:
     click.echo(f"📈 Buy conditions: {', '.join(setup.buy_conditions)}")
     click.echo(f"📉 Sell conditions: {', '.join(setup.sell_conditions)}")
     click.echo("🔄 Mappings:")
-    for m in setup.mappings:
+    for m in configuration.mappings:
         click.echo(f"  - {', '.join(m.from_message)} → {m.mapping}")
     
     # Confirm and save
     confirm = input("\nSave this configuration? (y/n): ")
     if confirm.lower() == 'y':
         save_setup_config(setup)
-        return setup
+        save_configuration(configuration)
+        return setup, configuration
     
-    return None
+    return None, None
 
 
-async def connect_and_listen(credentials, setup_config):
+async def connect_and_listen(credentials, setup_config, configuration):
     """Connect to Telegram and listen for messages"""
     # Initialize services
     telegram_service = TelegramService()
-    trade_service = TradeService(setup_config)
+    trade_service = TradeService(setup_config, configuration)
     
     # Connect to Telegram
     connected = await telegram_service.connect(

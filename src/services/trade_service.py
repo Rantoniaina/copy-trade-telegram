@@ -1,18 +1,20 @@
 from typing import Dict, Any, Optional, Set, List, Tuple
 from src.models.setup import Setup
 from src.models.mapping import Mapping
+from src.models.configuration import Configuration
 
 
 class TradeService:
-    def __init__(self, setup: Setup):
+    def __init__(self, setup: Setup, configuration: Configuration):
         self.setup = setup
+        self.configuration = configuration
         # Pre-compute lowercase conditions for faster matching
         self.buy_conditions_lower = {condition.lower() for condition in setup.buy_conditions}
         self.sell_conditions_lower = {condition.lower() for condition in setup.sell_conditions}
         
         # Pre-compute lowercase mappings for faster lookups
         self.mapping_table: List[Tuple[str, str]] = []
-        for mapping in setup.mappings:
+        for mapping in configuration.mappings:
             for from_text in mapping.from_message:
                 self.mapping_table.append((from_text.lower(), mapping.mapping))
     
