@@ -17,6 +17,8 @@ A command-line interface for connecting to Telegram API using your account and m
    TELEGRAM_API_HASH=your_api_hash
    TELEGRAM_PHONE=your_phone_number
    TELEGRAM_CHANNEL_TO_LISTEN=@channelname
+   SETUP_CONFIG={"buy_conditions": ["buy", "long", "bullish"], "sell_conditions": ["sell", "short", "bearish"]}
+   CONFIGURATION={"mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "position_type": "once", "interval_minutes": 0}
    ```
 
    You can get your API ID and hash by creating an application at https://my.telegram.org
@@ -48,6 +50,7 @@ python telegram_cli.py setup
 - 🎨 Beautiful, emoji-rich console output
 - 📊 Intelligent message filtering based on buy/sell conditions
 - ⚡ High-performance signal processing optimized for trading
+- ⏱️ Configurable position timing (once or at intervals)
 
 ### 🔍 Message Filtering
 
@@ -57,6 +60,15 @@ The application includes an optimized message filtering system that:
 - Only displays and processes messages containing trading signals
 - Uses case-insensitive matching to ensure all relevant signals are captured
 - Supports mapping of symbols from message text to trading pairs
+
+### ⏱️ Position Timing
+
+Two position triggering modes are available:
+
+- **ONCE**: Trigger a position only once per detected signal (default)
+- **EACH**: Trigger a position at regular intervals (e.g., every 5 minutes)
+
+This allows flexible trading strategies based on signal persistence or timing requirements.
 
 ### ⚡ Performance Optimizations
 

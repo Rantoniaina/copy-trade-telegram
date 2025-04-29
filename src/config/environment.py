@@ -72,8 +72,23 @@ def load_configuration():
                 mapping=mapping_dict.get('mapping', '')
             ))
         
+        # Get position type and interval
+        position_type_str = config_dict.get('position_type', 'once')
+        from src.models.configuration import PositionType
+        
+        # Convert string to enum
+        position_type = PositionType.ONCE
+        if position_type_str.lower() == 'each':
+            position_type = PositionType.EACH
+        
+        interval_minutes = config_dict.get('interval_minutes', 0)
+        
         # Create and return Configuration object
-        return Configuration(mappings=mappings)
+        return Configuration(
+            mappings=mappings,
+            position_type=position_type,
+            interval_minutes=interval_minutes
+        )
     except json.JSONDecodeError:
         print("❌ Error: Invalid JSON in CONFIGURATION environment variable")
         return None
@@ -120,7 +135,9 @@ def save_configuration(config: Configuration) -> bool:
                     'from_message': m.from_message,
                     'mapping': m.mapping
                 } for m in config.mappings
-            ]
+            ],
+            'position_type': config.position_type.value,
+            'interval_minutes': config.interval_minutes
         }
         
         # Convert to JSON string

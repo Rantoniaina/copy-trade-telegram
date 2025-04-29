@@ -122,6 +122,26 @@ def configure_setup() -> tuple[Setup, Configuration]:
             Mapping(from_message=["ETH", "Ethereum"], mapping="ETHUSDT")
         ]
     
+    # Configure position type
+    click.echo("\n⏱️ Position Timing Configuration")
+    click.echo("Select position trigger type:")
+    click.echo("1. ONCE - Trigger a position only once per signal")
+    click.echo("2. EACH - Trigger a position each X minutes")
+    position_choice = input("Enter your choice (1 or 2, default: 1): ")
+    
+    from src.models.configuration import PositionType
+    position_type = PositionType.ONCE
+    interval_minutes = 0
+    
+    if position_choice == "2":
+        position_type = PositionType.EACH
+        interval_input = input("Enter interval in minutes (e.g., 5): ")
+        try:
+            interval_minutes = int(interval_input) if interval_input else 5
+        except ValueError:
+            click.echo("⚠️ Invalid interval value, using default of 5 minutes")
+            interval_minutes = 5
+    
     # Create the setup and configuration
     setup = Setup(
         buy_conditions=buy_conditions,
@@ -129,7 +149,9 @@ def configure_setup() -> tuple[Setup, Configuration]:
     )
     
     configuration = Configuration(
-        mappings=mappings
+        mappings=mappings,
+        position_type=position_type,
+        interval_minutes=interval_minutes
     )
     
     # Preview the configuration
@@ -141,6 +163,9 @@ def configure_setup() -> tuple[Setup, Configuration]:
     click.echo("🔄 Mappings:")
     for m in configuration.mappings:
         click.echo(f"  - {', '.join(m.from_message)} → {m.mapping}")
+    click.echo(f"⏱️ Position type: {position_type.value.upper()}")
+    if position_type == PositionType.EACH:
+        click.echo(f"⏱️ Interval: {interval_minutes} minutes")
     
     # Confirm and save
     confirm = input("\nSave this configuration? (y/n): ")
