@@ -4,17 +4,14 @@ import json
 import os
 from src.config.environment import (
     load_environment, 
-    get_telegram_credentials, 
-    load_setup_config, 
-    save_setup_config,
+    get_telegram_credentials,
     load_configuration,
     save_configuration
 )
 from src.services.telegram_service import TelegramService
 from src.services.trade_service import TradeService
-from src.models.setup import Setup
 from src.models.mapping import Mapping
-from src.models.configuration import Configuration
+from src.models.configuration import Configuration, PositionType, PositionSL, PositionTP
 from decimal import Decimal
 
 
@@ -45,14 +42,13 @@ def connect(api_id, api_hash, phone, channel):
     if channel:
         credentials['channel'] = channel
     
-    # Load setup configuration
-    setup_config = load_setup_config()
+    # Load configuration
     configuration = load_configuration()
     
-    if not setup_config or not configuration:
-        click.echo("⚙️ No setup configuration or mappings found. Let's configure it now.")
-        setup_config, configuration = configure_setup()
-        if not setup_config or not configuration:
+    if not configuration:
+        click.echo("⚙️ No configuration found. Let's configure it now.")
+        configuration = configure_setup()
+        if not configuration:
             click.echo("❌ Setup configuration cancelled.")
             return
     
@@ -62,20 +58,20 @@ def connect(api_id, api_hash, phone, channel):
     click.echo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     
     # Run the async function using asyncio
-    asyncio.run(connect_and_listen(credentials, setup_config, configuration))
+    asyncio.run(connect_and_listen(credentials, configuration))
 
 
 @cli.command()
 def setup():
     """⚙️ Configure trading setup parameters"""
-    setup_config, configuration = configure_setup()
-    if setup_config:
+    configuration = configure_setup()
+    if configuration:
         click.echo("✅ Setup configuration completed successfully!")
     else:
         click.echo("❌ Setup configuration cancelled.")
 
 
-def configure_setup() -> tuple[Setup, Configuration]:
+def configure_setup() -> Configuration:
     """Interactive configuration of trading setup and configuration"""
     click.echo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     click.echo("⚙️ TRADING SETUP CONFIGURATION")
@@ -94,7 +90,7 @@ def configure_setup() -> tuple[Setup, Configuration]:
     sell_conditions = [s.strip() for s in sell_input.split(",")] if sell_input else ["sell", "short", "bearish"]
     
     # Configure mappings
-    mappings = []
+    pair_mappings = []
     click.echo("\n🔄 Symbol Mappings Configuration")
     click.echo("Let's configure how to map text in messages to trading symbols")
     
@@ -110,27 +106,83 @@ def configure_setup() -> tuple[Setup, Configuration]:
             break
         
         from_list = [s.strip() for s in from_text.split(",")]
-        mappings.append(Mapping(from_message=from_list, mapping=mapping_value))
+        pair_mappings.append(Mapping(from_message=from_list, mapping=mapping_value))
         
         add_more_input = input("Add another mapping? (y/n): ")
         add_more = add_more_input.lower() == 'y'
     
     # If no mappings were added, add some defaults
-    if not mappings:
+    if not pair_mappings:
         click.echo("\nAdding default mappings for BTC and ETH...")
-        mappings = [
+        pair_mappings = [
             Mapping(from_message=["BTC", "Bitcoin"], mapping="BTCUSDT"),
             Mapping(from_message=["ETH", "Ethereum"], mapping="ETHUSDT")
         ]
+    
+    # Configure stop loss mappings
+    sl_mappings = []
+    click.echo("\n🛑 Stop Loss Mappings Configuration")
+    click.echo("Configure how to identify stop loss levels in messages")
+    
+    add_sl = input("Do you want to configure stop loss mappings? (y/n): ")
+    if add_sl.lower() == 'y':
+        add_more = True
+        while add_more:
+            click.echo("\nAdd a new stop loss mapping:")
+            from_text = input("Keywords that indicate stop loss (comma-separated): ")
+            if not from_text:
+                break
+            
+            sl_position = input("Is the stop loss value before or after the keyword? (before/after, default: after): ")
+            if sl_position.lower() not in ['before', 'after']:
+                sl_position = 'after'
+            
+            from_list = [s.strip() for s in from_text.split(",")]
+            sl_mappings.append(Mapping(
+                from_message=from_list, 
+                mapping="sl", 
+                sl_position=sl_position
+            ))
+            
+            add_more_input = input("Add another stop loss mapping? (y/n): ")
+            add_more = add_more_input.lower() == 'y'
+    
+    # Configure take profit mappings
+    tp_mappings = []
+    click.echo("\n💰 Take Profit Mappings Configuration")
+    click.echo("Configure how to identify take profit levels in messages")
+    
+    add_tp = input("Do you want to configure take profit mappings? (y/n): ")
+    if add_tp.lower() == 'y':
+        add_more = True
+        while add_more:
+            click.echo("\nAdd a new take profit mapping:")
+            from_text = input("Keywords that indicate take profit (comma-separated): ")
+            if not from_text:
+                break
+            
+            tp_position = input("Is the take profit value before or after the keyword? (before/after, default: after): ")
+            if tp_position.lower() not in ['before', 'after']:
+                tp_position = 'after'
+            
+            from_list = [s.strip() for s in from_text.split(",")]
+            tp_mappings.append(Mapping(
+                from_message=from_list, 
+                mapping="tp", 
+                tp_position=tp_position
+            ))
+            
+            add_more_input = input("Add another take profit mapping? (y/n): ")
+            add_more = add_more_input.lower() == 'y'
     
     # Configure position type
     click.echo("\n⏱️ Position Timing Configuration")
     click.echo("Select position trigger type:")
     click.echo("1. ONCE - Trigger a position only once per signal")
     click.echo("2. EACH - Trigger a position each X minutes")
-    position_choice = input("Enter your choice (1 or 2, default: 1): ")
+    click.echo("3. TP_LENGTH - Create as many positions as there are take profit levels")
+    position_choice = input("Enter your choice (1, 2, or 3, default: 1): ")
     
-    from src.models.configuration import PositionType, PositionSL
     position_type = PositionType.ONCE
     interval_minutes = 0
     
@@ -142,6 +194,8 @@ def configure_setup() -> tuple[Setup, Configuration]:
         except ValueError:
             click.echo("⚠️ Invalid interval value, using default of 5 minutes")
             interval_minutes = 5
+    elif position_choice == "3":
+        position_type = PositionType.TP_LENGTH
     
     # Configure stop loss
     click.echo("\n🛑 Stop Loss Configuration")
@@ -171,51 +225,100 @@ def configure_setup() -> tuple[Setup, Configuration]:
             click.echo("⚠️ Invalid stop loss value, using default of 5%")
             stop_loss = Decimal('5')
     
-    # Create the setup and configuration
-    setup = Setup(
+    # Configure take profit
+    click.echo("\n💰 Take Profit Configuration")
+    click.echo("Select take profit mode:")
+    click.echo("1. NO_TP - No take profit will be set")
+    click.echo("2. SIGNAL_TP - Take profit will be set based on the signal")
+    click.echo("3. USER_TP - Take profit will be set based on user configuration")
+    if position_type == PositionType.EACH:
+        click.echo("4. ALTERNATE - Alternate between take profit levels for each position")
+    
+    tp_choice = input(f"Enter your choice (1, 2, 3{', or 4' if position_type == PositionType.EACH else ''}, default: 1): ")
+    
+    position_tp = PositionTP.NO_TP
+    take_profit = None
+    
+    if tp_choice == "2":
+        position_tp = PositionTP.SIGNAL_TP
+    elif tp_choice == "3":
+        position_tp = PositionTP.USER_TP
+        
+        # Get take profit percentage from user
+        click.echo("\nEnter take profit percentage (e.g., 10 for 10%)")
+        tp_input = input("Take profit percentage: ")
+        try:
+            take_profit = Decimal(tp_input)
+            if take_profit <= 0:
+                click.echo("⚠️ Take profit must be greater than 0, using default of 10%")
+                take_profit = Decimal('10')
+        except:
+            click.echo("⚠️ Invalid take profit value, using default of 10%")
+            take_profit = Decimal('10')
+    elif tp_choice == "4" and position_type == PositionType.EACH:
+        position_tp = PositionTP.ALTERNATE
+    
+    # Create the configuration
+    configuration = Configuration(
         buy_conditions=buy_conditions,
         sell_conditions=sell_conditions,
-    )
-    
-    configuration = Configuration(
-        mappings=mappings,
+        pair_mappings=pair_mappings,
+        sl_mappings=sl_mappings,
+        tp_mappings=tp_mappings,
         position_type=position_type,
         interval_minutes=interval_minutes,
         position_sl=position_sl,
-        stop_loss=stop_loss
+        position_tp=position_tp,
+        stop_loss=stop_loss,
+        take_profit=take_profit
     )
     
     # Preview the configuration
     click.echo("\n━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     click.echo("📋 CONFIGURATION SUMMARY")
     click.echo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
-    click.echo(f"📈 Buy conditions: {', '.join(setup.buy_conditions)}")
-    click.echo(f"📉 Sell conditions: {', '.join(setup.sell_conditions)}")
-    click.echo("🔄 Mappings:")
-    for m in configuration.mappings:
+    click.echo(f"📈 Buy conditions: {', '.join(configuration.buy_conditions)}")
+    click.echo(f"📉 Sell conditions: {', '.join(configuration.sell_conditions)}")
+    click.echo("🔄 Pair Mappings:")
+    for m in configuration.pair_mappings:
         click.echo(f"  - {', '.join(m.from_message)} → {m.mapping}")
+    
+    if configuration.sl_mappings:
+        click.echo("🛑 Stop Loss Mappings:")
+        for m in configuration.sl_mappings:
+            click.echo(f"  - {', '.join(m.from_message)} ({m.sl_position})")
+    
+    if configuration.tp_mappings:
+        click.echo("💰 Take Profit Mappings:")
+        for m in configuration.tp_mappings:
+            click.echo(f"  - {', '.join(m.from_message)} ({m.tp_position})")
+    
     click.echo(f"⏱️ Position type: {position_type.value.upper()}")
     if position_type == PositionType.EACH:
         click.echo(f"⏱️ Interval: {interval_minutes} minutes")
+    
     click.echo(f"🛑 Stop loss mode: {position_sl.value.upper()}")
     if position_sl == PositionSL.USER_SL and stop_loss is not None:
         click.echo(f"🛑 Stop loss percentage: {stop_loss}%")
     
+    click.echo(f"💰 Take profit mode: {position_tp.value.upper()}")
+    if position_tp == PositionTP.USER_TP and take_profit is not None:
+        click.echo(f"💰 Take profit percentage: {take_profit}%")
+    
     # Confirm and save
     confirm = input("\nSave this configuration? (y/n): ")
     if confirm.lower() == 'y':
-        save_setup_config(setup)
         save_configuration(configuration)
-        return setup, configuration
+        return configuration
     
-    return None, None
+    return None
 
 
-async def connect_and_listen(credentials, setup_config, configuration):
+async def connect_and_listen(credentials, configuration):
     """Connect to Telegram and listen for messages"""
     # Initialize services
     telegram_service = TelegramService()
-    trade_service = TradeService(setup_config, configuration)
+    trade_service = TradeService(configuration)
     
     # Connect to Telegram
     connected = await telegram_service.connect(
@@ -238,8 +341,8 @@ async def connect_and_listen(credentials, setup_config, configuration):
             click.echo(f"⏰ Time: {trade_signal['timestamp']}")
             click.echo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     
-    # Add message handler and pass setup_config for filtering
-    telegram_service.add_message_handler(credentials['channel'], handle_message, setup_config)
+    # Add message handler
+    telegram_service.add_message_handler(credentials['channel'], handle_message, configuration)
     
     try:
         # Run the client

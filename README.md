@@ -17,8 +17,7 @@ A command-line interface for connecting to Telegram API using your account and m
    TELEGRAM_API_HASH=your_api_hash
    TELEGRAM_PHONE=your_phone_number
    TELEGRAM_CHANNEL_TO_LISTEN=@channelname
-   SETUP_CONFIG={"buy_conditions": ["buy", "long", "bullish"], "sell_conditions": ["sell", "short", "bearish"]}
-   CONFIGURATION={"pair_mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "sl_mappings": [], "tp_mappings": [], "position_type": "once", "interval_minutes": 0, "position_sl": "no_sl", "position_tp": "no_tp"}
+   CONFIGURATION={"buy_conditions": ["buy", "long", "bullish"], "sell_conditions": ["sell", "short", "bearish"], "pair_mappings": [{"from_message": ["BTC", "Bitcoin"], "mapping": "BTCUSDT"}], "sl_mappings": [], "tp_mappings": [], "position_type": "once", "interval_minutes": 0, "position_sl": "no_sl", "position_tp": "no_tp"}
    ```
 
    You can get your API ID and hash by creating an application at https://my.telegram.org

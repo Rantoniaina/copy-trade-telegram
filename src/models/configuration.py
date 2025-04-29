@@ -28,6 +28,8 @@ class PositionTP(Enum):
 @dataclass
 class Configuration:
     pair_mappings: List[Mapping]
+    buy_conditions: List[str]
+    sell_conditions: List[str]
     sl_mappings: List[Mapping] = None
     tp_mappings: List[Mapping] = None
     position_type: PositionType = PositionType.ONCE

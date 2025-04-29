@@ -38,13 +38,13 @@ class TelegramService:
             click.echo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
             return False
     
-    def add_message_handler(self, channel: str, message_handler: Callable[[Dict[str, Any]], None], setup=None):
+    def add_message_handler(self, channel: str, message_handler: Callable[[Dict[str, Any]], None], configuration=None):
         """Add event handler for new messages in the specified channel
         
         Parameters:
             channel: Channel to listen to
             message_handler: Callback for handling messages
-            setup: Optional Setup object with buy_conditions and sell_conditions for filtering
+            configuration: Optional Configuration object with buy_conditions and sell_conditions for filtering
         """
         if not self.client:
             raise Exception("Client not connected. Call connect() first.")
@@ -54,9 +54,9 @@ class TelegramService:
         sell_conditions_lower = set()
         all_conditions_lower = set()
         
-        if setup:
-            buy_conditions_lower = {condition.lower() for condition in setup.buy_conditions}
-            sell_conditions_lower = {condition.lower() for condition in setup.sell_conditions}
+        if configuration and hasattr(configuration, 'buy_conditions') and hasattr(configuration, 'sell_conditions'):
+            buy_conditions_lower = {condition.lower() for condition in configuration.buy_conditions}
+            sell_conditions_lower = {condition.lower() for condition in configuration.sell_conditions}
             all_conditions_lower = buy_conditions_lower.union(sell_conditions_lower)
         
         @self.client.on(events.NewMessage(chats=channel))
@@ -74,11 +74,11 @@ class TelegramService:
                 'text': message_text
             }
             
-            # Fast path: if no setup or no conditions to check, process all messages
+            # Fast path: if no configuration or no conditions to check, process all messages
             should_process = True
             
-            # Only do filtering if setup and conditions exist
-            if setup and all_conditions_lower:
+            # Only do filtering if configuration and conditions exist
+            if configuration and all_conditions_lower:
                 should_process = False
                 message_lower = message_text.lower()
                 
