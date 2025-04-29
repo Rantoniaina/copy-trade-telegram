@@ -1,12 +1,14 @@
 from dataclasses import dataclass
-from typing import List
+from typing import List, Optional
+from decimal import Decimal
 
 
 @dataclass
 class Setup:
     """
-    DEPRECATED: This class is deprecated and will be removed in a future version.
-    Buy and sell conditions are now part of the Configuration class.
+    Represents the result of processing an incoming message based on configuration.
+    Contains the trading setup details extracted from the message.
     """
-    buy_conditions: List[str]
-    sell_conditions: List[str] 
+    instrument: str  # The trading pair/instrument based on mapping value
+    sl: Optional[Decimal] = None  # Stop loss level in decimal
+    tps: List[Decimal] = None  # Array of take profit levels in decimal 

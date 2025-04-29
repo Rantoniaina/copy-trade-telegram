@@ -340,6 +340,25 @@ async def connect_and_listen(credentials, configuration):
             click.echo(f"📊 Source: {trade_signal['source']}")
             click.echo(f"⏰ Time: {trade_signal['timestamp']}")
             click.echo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+            
+            # Display setup information if available
+            if 'setup' in trade_signal:
+                setup = trade_signal['setup']
+                click.echo("📐 SETUP DETAILS:")
+                click.echo(f"🎯 Instrument: {setup.instrument}")
+                
+                if setup.sl:
+                    click.echo(f"🛑 Stop Loss: {setup.sl}")
+                else:
+                    click.echo(f"🛑 Stop Loss: None")
+                
+                if setup.tps:
+                    tp_str = ", ".join(str(tp) for tp in setup.tps)
+                    click.echo(f"💰 Take Profit{'s' if len(setup.tps) > 1 else ''}: {tp_str}")
+                else:
+                    click.echo(f"💰 Take Profits: None")
+                
+                click.echo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
     
     # Add message handler
     telegram_service.add_message_handler(credentials['channel'], handle_message, configuration)

@@ -90,7 +90,7 @@ class TelegramService:
                         break
             
             if should_process:
-                # Print message info
+                # Print message info first
                 click.echo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
                 click.echo(f"📩 New message from {channel}")
                 click.echo(f"👤 Sender: {sender_name}")
@@ -98,7 +98,7 @@ class TelegramService:
                 click.echo(f"💬 Message: {message_text}")
                 click.echo("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
                 
-                # Call the provided message handler
+                # Call the provided message handler to process trade signals
                 if message_handler:
                     message_handler(message_data)
     

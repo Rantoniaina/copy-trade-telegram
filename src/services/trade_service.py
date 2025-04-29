@@ -1,6 +1,9 @@
-from typing import Dict, Any, Optional, Set, List, Tuple
+from typing import Dict, Any, Optional, Set, List, Tuple, Union
 from src.models.mapping import Mapping
 from src.models.configuration import Configuration
+from src.models.setup import Setup
+from decimal import Decimal
+import re
 
 
 class TradeService:
@@ -48,40 +51,90 @@ class TradeService:
         
         return None
     
+    def create_setup_from_message(self, message_text: str) -> Optional[Setup]:
+        """
+        Create a Setup object from message text based on configuration.
+        Returns None if no valid setup could be created.
+        """
+        if not message_text:
+            return None
+            
+        # Extract instrument from message
+        instrument = self._apply_pair_mappings(message_text)
+        if not instrument:
+            return None
+            
+        # Extract stop loss if configured
+        sl = None
+        if self.configuration.position_sl.name == "SIGNAL_SL":
+            sl_value = self._extract_stop_loss(message_text)
+            if sl_value:
+                try:
+                    sl = Decimal(str(sl_value))
+                except (ValueError, TypeError):
+                    pass
+                    
+        # Extract take profit levels if configured
+        tps = []
+        if self.configuration.position_tp.name == "SIGNAL_TP":
+            tp_values = self._extract_take_profit(message_text)
+            if tp_values:
+                if isinstance(tp_values, list):
+                    # Convert list of values to Decimals
+                    tps = [Decimal(str(tp)) for tp in tp_values if self._is_valid_decimal(tp)]
+                else:
+                    # Single TP value
+                    try:
+                        tps = [Decimal(str(tp_values))]
+                    except (ValueError, TypeError):
+                        pass
+        
+        # Create and return the Setup object
+        setup = Setup(
+            instrument=instrument,
+            sl=sl,
+            tps=tps if tps else None
+        )
+        
+        # Print the extracted setup
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        print("🔍 EXTRACTED SETUP FROM MESSAGE:")
+        print(f"🎯 Instrument: {setup.instrument}")
+        print(f"🛑 Stop Loss: {setup.sl if setup.sl is not None else 'None'}")
+        print(f"💰 Take Profits: {', '.join(str(tp) for tp in setup.tps) if setup.tps else 'None'}")
+        print("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+        
+        return setup
+    
     def _create_trade_signal(self, message_data: Dict[str, Any], action: str) -> Dict[str, Any]:
         """Create a trade signal from the message data"""
         message_text = message_data.get('text', '')
         
-        # Apply mappings
-        mapped_symbol = self._apply_pair_mappings(message_text)
+        # Create Setup object
+        setup = self.create_setup_from_message(message_text)
         
-        # Extract stop loss and take profit if configured
-        stop_loss = None
-        take_profit = None
-        
-        if self.configuration.position_sl.name == "SIGNAL_SL":
-            stop_loss = self._extract_stop_loss(message_text)
-        
-        if self.configuration.position_tp.name == "SIGNAL_TP":
-            take_profit = self._extract_take_profit(message_text)
-        
+        # Build signal dict
         signal = {
             'action': action,
-            'symbol': mapped_symbol,
+            'symbol': setup.instrument if setup else message_text,
             'raw_message': message_text,
             'timestamp': message_data.get('time'),
             'source': f"{message_data.get('channel')} - {message_data.get('sender')}"
         }
         
-        # Add stop loss and take profit if found
-        if stop_loss:
-            signal['stop_loss'] = stop_loss
-        
-        if take_profit:
-            if isinstance(take_profit, list):
-                signal['take_profit_levels'] = take_profit
-            else:
-                signal['take_profit'] = take_profit
+        # Add setup if available
+        if setup:
+            signal['setup'] = setup
+            
+            # Also add stop loss and take profit to the main signal object for backward compatibility
+            if setup.sl:
+                signal['stop_loss'] = str(setup.sl)
+            
+            if setup.tps:
+                if len(setup.tps) == 1:
+                    signal['take_profit'] = str(setup.tps[0])
+                else:
+                    signal['take_profit_levels'] = [str(tp) for tp in setup.tps]
         
         return signal
     
@@ -97,28 +150,66 @@ class TradeService:
         # Return original text if no mapping found
         return message_text
     
-    def _extract_stop_loss(self, message_text: str) -> Optional[str]:
+    def _extract_stop_loss(self, message_text: str) -> Optional[Union[str, float]]:
         """Extract stop loss value from message based on mappings"""
         message_lower = message_text.lower()
         
         for keyword, mapping, position in self.sl_mapping_table:
             if keyword in message_lower:
-                # TODO: Implement logic to extract stop loss value
-                # This would require parsing the message to find the actual value
-                # based on the keyword position (before or after)
-                return None  # Placeholder for actual implementation
+                # Find the index of the keyword
+                keyword_index = message_lower.find(keyword)
+                if keyword_index != -1:
+                    # Extract numeric value based on position
+                    if position.lower() == 'after':
+                        # Look for number after the keyword
+                        after_text = message_text[keyword_index + len(keyword):]
+                        return self._extract_first_number(after_text)
+                    elif position.lower() == 'before':
+                        # Look for number before the keyword
+                        before_text = message_text[:keyword_index]
+                        return self._extract_last_number(before_text)
         
         return None
     
-    def _extract_take_profit(self, message_text: str) -> Optional[str]:
+    def _extract_take_profit(self, message_text: str) -> Optional[Union[str, float, List]]:
         """Extract take profit value(s) from message based on mappings"""
         message_lower = message_text.lower()
         
         for keyword, mapping, position in self.tp_mapping_table:
             if keyword in message_lower:
-                # TODO: Implement logic to extract take profit value(s)
-                # This would require parsing the message to find the actual value(s)
-                # based on the keyword position (before or after)
-                return None  # Placeholder for actual implementation
+                # Find the index of the keyword
+                keyword_index = message_lower.find(keyword)
+                if keyword_index != -1:
+                    # Extract numeric value based on position
+                    if position.lower() == 'after':
+                        # Look for number(s) after the keyword
+                        after_text = message_text[keyword_index + len(keyword):]
+                        return self._extract_all_numbers(after_text)
+                    elif position.lower() == 'before':
+                        # Look for number before the keyword
+                        before_text = message_text[:keyword_index]
+                        return self._extract_last_number(before_text)
         
-        return None 
+        return None
+    
+    def _extract_first_number(self, text: str) -> Optional[str]:
+        """Extract the first number (integer or decimal) from text"""
+        matches = re.findall(r'[-+]?\d*\.\d+|\d+', text)
+        return matches[0] if matches else None
+    
+    def _extract_last_number(self, text: str) -> Optional[str]:
+        """Extract the last number (integer or decimal) from text"""
+        matches = re.findall(r'[-+]?\d*\.\d+|\d+', text)
+        return matches[-1] if matches else None
+    
+    def _extract_all_numbers(self, text: str) -> List[str]:
+        """Extract all numbers (integer or decimal) from text"""
+        return re.findall(r'[-+]?\d*\.\d+|\d+', text)
+    
+    def _is_valid_decimal(self, value) -> bool:
+        """Check if a value can be converted to Decimal"""
+        try:
+            Decimal(str(value))
+            return True
+        except (ValueError, TypeError):
+            return False 
